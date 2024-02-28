@@ -17,9 +17,9 @@ OutPrefix = args[3] #"NorCog.TotalRNA"
 class.column=args[4] #"Phenotype"
 grouping.columns.num=args[5] #"Age"
 grouping.columns.fact=args[6] #"Sex"
-scale=ifelse(tolower(trimws(args[7]))=="yes",T,F) #no
-feature.selection=ifelse(tolower(trimws(args[8]))=="yes",T,F) #yes
-saveModel=ifelse(tolower(trimws(args[7]))=="yes",T,F) #yes
+scale=ifelse(tolower(trimws(args[7]))=="yes",T,F) #F
+feature.selection=ifelse(tolower(trimws(args[8]))=="yes",T,F) #T
+saveModel=ifelse(tolower(trimws(args[7]))=="yes",T,F)
 models= str_split_1(trimws(args[9]),pattern = ",") #"adaboost,awtan,bartMachine,bayesglm,earth,extraTrees,gaussprLinear,gbm,glm,glmnet,gpls,kknn,LMT,lssvmLinear,lssvmPoly,lssvmRadial,rf,RRF,svmBoundrangeString,svmExpoString,svmLinear,svmPoly,svmRadial"
 
 ######################## Reading Inputs ############################################
@@ -106,7 +106,7 @@ for(model in models){
     saveRDS(fit,file = paste0(OutPrefix,".",model,".rds"))
   cat("Plot training results...")
   cat("\n")
-  tiff(filename = paste(OutPrefix,".",model.label,".parameters.tuning.tiff"), units = "in", height = 10,width = 10,res = 300)
+  tiff(filename = paste(OutPrefix,".",model,".parameters.tuning.tiff"), units = "in", height = 10,width = 10,res = 300)
   ggplot(fit) + ggtitle(paste(model.label,"- parameters tuning"))+ theme_bw()
   graphics.off()
   folds <- unique(fit$pred$Resample)
@@ -117,9 +117,13 @@ for(model in models){
     train.roc.obj[[i]] <- roc(response=fit$pred$obs[fit$pred$Resample==folds[i]],predictor=fit$pred[,4][fit$pred$Resample==folds[i]])
     train.roc.labels[i] <- paste0(folds[i]," (AUC=",round(train.roc.obj[[i]]$auc,digits = 2),")")
   }
-  tiff(filename = paste(OutPrefix,".",model.label,"accuracy.on.train.data.tiff"), units = "in", height = 10,width = 10,res = 300)
+  tiff(filename = paste(OutPrefix,".",model,".accuracy.on.train.data.tiff"), units = "in", height = 10,width = 10,res = 300)
   ggroc(train.roc.obj) + ggtitle(paste(model.label,"accuracy on train data")) + labs(color = "Fold") +
                          scale_color_discrete(labels=train.roc.labels)+ theme_bw()
+  graphics.off()
+  imp.var <- varImp(fit ,scale=T,useModel=F)
+  tiff(filename = paste(OutPrefix,".",model,".variable.importance.tiff"), units = "in", height = 10,width = 10,res = 300)
+  plot(imp.var, top = 20)
   graphics.off()
   ####################### Testing ####################################################
   cat(paste0("Applying the ",model," model on test data..."))
@@ -131,7 +135,7 @@ for(model in models){
   cat("Plot test results...")
   cat("\n")
   obj.roc <- roc(response=pred$Reference,predictor=pred[,1])
-  tiff(filename = paste(OutPrefix,".",model.label,"accuracy.on.test.data.tiff"), units = "in", height = 10,width = 10,res = 300)
+  tiff(filename = paste(OutPrefix,".",model,"accuracy.on.test.data.tiff"), units = "in", height = 10,width = 10,res = 300)
   ggroc(obj.roc)+ggtitle(paste(model.label,"accuracy on test data")) +
     theme_bw() + annotate("text",x = 0.1,y = 0.1,label=paste0("AUC=",round(obj.roc$auc,digits = 2)))
   graphics.off()
