@@ -8,20 +8,19 @@ library(stringr)
 library(ggplot2)
 library(pROC)
 
-#setwd("C:/Users/mk693/OneDrive - University of Exeter/Desktop/2021/NIH/Data/classification/Blood.MultiOmics")
 source("Scripts/Caret.Classification.Functions.R")
 args <- commandArgs(T)
 
-data.feature.file= args[1] #"Raw/NorCog.TotalRNA.logCPM.Scaled0.csv"
-data.class.file= args[2] #"Raw/NorCog.Pheno.csv"
-OutPrefix = args[3] #"NorCog.TotalRNA"
-class.column=args[4] #"Phenotype"
-grouping.columns.num=args[5] #"Age"
-grouping.columns.fact=args[6] #"Sex"
-scale=ifelse(tolower(trimws(args[7]))=="yes",T,F) #F
-feature.selection=ifelse(tolower(trimws(args[8]))=="yes",T,F) #T
+data.feature.file= args[1] 
+data.class.file= args[2] 
+OutPrefix = args[3] 
+class.column=args[4] 
+grouping.columns.num=args[5] 
+grouping.columns.fact=args[6] 
+scale=ifelse(tolower(trimws(args[7]))=="yes",T,F) 
+feature.selection=ifelse(tolower(trimws(args[8]))=="yes",T,F) 
 saveModel=ifelse(tolower(trimws(args[7]))=="yes",T,F)
-model= args[9] #"adaboost,awtan,bartMachine,bayesglm,earth,extraTrees,gaussprLinear,gbm,glm,glmnet,gpls,kknn,LMT,lssvmLinear,lssvmPoly,lssvmRadial,rf,RRF,svmBoundrangeString,svmExpoString,svmLinear,svmPoly,svmRadial"
+model= args[9] 
 
 ######################## Reading Inputs ############################################
 sink(paste0(OutPrefix,".log"))
