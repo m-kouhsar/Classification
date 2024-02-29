@@ -1,4 +1,3 @@
-
 library(caret)
 library(minDiff)
 library(dplyr)
@@ -7,23 +6,24 @@ options(datatable.fread.datatable = F)
 library(stringr)
 library(ggplot2)
 library(pROC)
+library("funr")
 
-source("Scripts/Caret.Classification.Functions.R")
+dirScript <- dirname(sys.script())
+source(paste0(dirScript,"/Caret.Classification.Functions.R"))
 args <- commandArgs(T)
 
-data.feature.file= args[1] #"Raw/NorCog.TotalRNA.logCPM.Scaled0.csv"
-data.class.file= args[2] #"Raw/NorCog.Pheno.csv"
-OutPrefix = args[3] #"NorCog.TotalRNA"
-class.column=args[4] #"Phenotype"
-grouping.columns.num=args[5] #"Age"
-grouping.columns.fact=args[6] #"Sex"
-scale=ifelse(tolower(trimws(args[7]))=="yes",T,F) #F
-feature.selection=ifelse(tolower(trimws(args[8]))=="yes",T,F) #T
+data.feature.file= args[1] 
+data.class.file= args[2] 
+OutPrefix = args[3] 
+class.column=args[4] 
+grouping.columns.num=args[5] 
+grouping.columns.fact=args[6] 
+scale=ifelse(tolower(trimws(args[7]))=="yes",T,F) 
+feature.selection=ifelse(tolower(trimws(args[8]))=="yes",T,F) 
 saveModel=ifelse(tolower(trimws(args[7]))=="yes",T,F)
-models= str_split_1(trimws(args[9]),pattern = ",") #"adaboost,awtan,bartMachine,bayesglm,earth,extraTrees,gaussprLinear,gbm,glm,glmnet,gpls,kknn,LMT,lssvmLinear,lssvmPoly,lssvmRadial,rf,RRF,svmBoundrangeString,svmExpoString,svmLinear,svmPoly,svmRadial"
+models= str_split_1(trimws(args[9]),pattern = ",") 
 
 ######################## Reading Inputs ############################################
-sink(paste0(OutPrefix,".log"))
 
 cat("Reading inputs...")
 cat("\n")
@@ -63,8 +63,8 @@ grouping.columns.fact <- str_trim(str_split_1(grouping.columns.fact , pattern = 
 
 data.class <- train.test.split(grouping.data = data.class , factor.grouping.variables = c(grouping.columns.fact , class.column),
                                numeric.grouping.variables = grouping.columns.num,train.percentage = 0.75)
-data.train <- cbind.data.frame(data.feature[data.class$Train ,],Class=data.class[data.class$Train , class.column])
-data.test <- cbind.data.frame(data.feature[!data.class$Train ,],Class=data.class[!data.class$Train , class.column])
+data.train <- cbind.data.frame(data.feature[data.class$Train ,],Class=as.factor(data.class[data.class$Train , class.column]))
+data.test <- cbind.data.frame(data.feature[!data.class$Train ,],Class=as.factor(data.class[!data.class$Train , class.column]))
 
 model.all <-  getModelInfo()
 for(model in models){
@@ -73,23 +73,12 @@ for(model in models){
   cat(paste0("Train ",model," (",model.label,") ","on train data..."))
   cat("\n")
   
-  #caret.models <- modelLookup()
-  #caret.models$label.model = NA
-  #for (i in 1:nrow(caret.models)) {
-  #  caret.models$label.model[i] = model.all[[caret.models$model[i]]]$label
-  #}
-  #caret.models <- caret.models[,c(1,7,2,3,4,5,6)]
-  #write.csv(caret.models,file = "Raw/Caret.Models.csv", row.names = F)
-  
   set.seed(1234)
   fitControl <- trainControl(
-    #method = "repeatedcv",
     method = "cv",
     number = 5, 
-    #repeats = 3,
     classProbs = T,
     savePredictions = T,
-    #summaryFunction = twoClassSummary,
     selectionFunction = tolerance)
   
   Grid <- model.all[[model]]$grid(x = data.train[,-ncol(data.train)],y = data.train[,ncol(data.train)],len = 10)
@@ -97,18 +86,19 @@ for(model in models){
   fit <- train(Class ~ ., data = data.train, 
                method = model, 
                trControl = fitControl,
-               #metric="ROC",
-               tuneGrid = Grid,
-               verbose = F
+               tuneGrid = Grid
                )
   
   if(saveModel)
     saveRDS(fit,file = paste0(OutPrefix,".",model,".rds"))
   cat("Plot training results...")
   cat("\n")
-  tiff(filename = paste(OutPrefix,".",model,".parameters.tuning.tiff"), units = "in", height = 10,width = 10,res = 300)
-  ggplot(fit) + ggtitle(paste(model.label,"- parameters tuning"))+ theme_bw()
-  graphics.off()
+  if(nrow(Grid)>1){
+    tiff(filename = paste(OutPrefix,".",model,".parameters.tuning.tiff"), units = "in", height = 10,width = 10,res = 300)
+    ggplot(fit) + ggtitle(paste(model.label,"- parameters tuning"))+ theme_bw()
+    graphics.off()
+  }
+  
   folds <- unique(fit$pred$Resample)
   train.roc.obj <- vector(mode = "list", length = length(folds))
   train.roc.labels <- vector(mode = "character", length = length(folds))
@@ -139,7 +129,16 @@ for(model in models){
   ggroc(obj.roc)+ggtitle(paste(model.label,"accuracy on test data")) +
     theme_bw() + annotate("text",x = 0.1,y = 0.1,label=paste0("AUC=",round(obj.roc$auc,digits = 2)))
   graphics.off()
-  cat("Performance summary on test data:")
+  cat("Save results summary...")
+  cat("\n")
+  sink(paste0(OutPrefix,".",model,".txt"))
+  cat(model,"(",model.label,")",sep = "",":\n")
   confusionMatrix(data =as.factor(pred$Predict) , reference = as.factor(pred$Reference))
+  sink()
 }
-sink()
+
+
+
+
+
+
