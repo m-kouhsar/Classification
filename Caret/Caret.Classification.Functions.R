@@ -1,13 +1,14 @@
 train.test.split <- function(grouping.data , factor.grouping.variables , 
                              numeric.grouping.variables, train.percentage=0.75){
   
-  grouping.data <- minDiff::create_groups(grouping.data,criteria_scale = numeric.grouping.variables,
-                criteria_nominal = factor.grouping.variables, sets_n = round(1/(1-train.percentage),digits = 0),
-                equalize=list(mean, sd),exact=F,talk = T)
+  grouping.data$group <- anticlust::anticlustering(x=grouping.data[,numeric.grouping.variables],
+                                             K = round(1/(1-train.percentage),digits = 0),
+                                             objective = "variance",
+                                             categories = grouping.data[,factor.grouping.variables])
   grouping.data$Train <- T
-  grouping.data$Train[grouping.data$newSet == 1] <- F
+  grouping.data$Train[grouping.data$group == 1] <- F
   
-  grouping.data <- grouping.data[,!(names(grouping.data)=="newSet")]
+  grouping.data <- grouping.data[,!(names(grouping.data)=="group")]
   
   return(grouping.data)
 }
