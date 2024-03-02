@@ -1,6 +1,6 @@
+
 library(caret)
-library(minDiff)
-library(dplyr)
+library(anticlust)
 library(data.table)
 options(datatable.fread.datatable = F)
 library(stringr)
@@ -21,7 +21,7 @@ grouping.columns.fact=args[6]
 scale=ifelse(tolower(trimws(args[7]))=="yes",T,F) 
 feature.selection=ifelse(tolower(trimws(args[8]))=="yes",T,F) 
 saveModel=ifelse(tolower(trimws(args[7]))=="yes",T,F)
-models= str_split_1(trimws(args[9]),pattern = ",") 
+models= str_split(trimws(args[9]),pattern = ",",simplify = T)[1,]
 
 ######################## Reading Inputs ############################################
 
@@ -58,8 +58,8 @@ if(feature.selection){
 ######################## Train-Test splitting ######################################
 cat("Train-Test splitting...")
 cat("\n")
-grouping.columns.num <- str_trim(str_split_1(grouping.columns.num , pattern = ","),side = "both")
-grouping.columns.fact <- str_trim(str_split_1(grouping.columns.fact , pattern = ","),side = "both")
+grouping.columns.num <- str_trim(str_split(grouping.columns.num , pattern = ",",simplify = T)[1,],side = "both")
+grouping.columns.fact <- str_trim(str_split(grouping.columns.fact , pattern = ",",simplify = T)[1,],side = "both")
 
 data.class <- train.test.split(grouping.data = data.class , factor.grouping.variables = c(grouping.columns.fact , class.column),
                                numeric.grouping.variables = grouping.columns.num,train.percentage = 0.75)
@@ -67,7 +67,8 @@ data.train <- cbind.data.frame(data.feature[data.class$Train ,],Class=as.factor(
 data.test <- cbind.data.frame(data.feature[!data.class$Train ,],Class=as.factor(data.class[!data.class$Train , class.column]))
 
 model.all <-  getModelInfo()
-for(model in models){
+for(i in 1:length(models)){
+  model <- models[i]
   ######################## Training #################################################
   model.label <- model.all[[model]]$label
   cat(paste0("Train ",model," (",model.label,") ","on train data..."))
@@ -86,7 +87,7 @@ for(model in models){
   fit <- train(Class ~ ., data = data.train, 
                method = model, 
                trControl = fitControl,
-               tuneGrid = Grid
+               tuneGrid = Grid,
                )
   
   if(saveModel)
@@ -94,8 +95,9 @@ for(model in models){
   cat("Plot training results...")
   cat("\n")
   if(nrow(Grid)>1){
-    tiff(filename = paste(OutPrefix,".",model,".parameters.tuning.tiff"), units = "in", height = 10,width = 10,res = 300)
-    ggplot(fit) + ggtitle(paste(model.label,"- parameters tuning"))+ theme_bw()
+    tiff(filename = paste0(OutPrefix,".",model,".parameters.tuning.tiff"), units = "in", height = 6,width = 6,res = 300)
+    p <- ggplot(fit) + ggtitle(paste(model.label,"- parameters tuning"))+ theme_bw()
+    print(p)
     graphics.off()
   }
   
@@ -103,16 +105,16 @@ for(model in models){
   train.roc.obj <- vector(mode = "list", length = length(folds))
   train.roc.labels <- vector(mode = "character", length = length(folds))
   names(train.roc.obj) <- folds
-  for(i in 1:length(folds)){
-    train.roc.obj[[i]] <- roc(response=fit$pred$obs[fit$pred$Resample==folds[i]],predictor=fit$pred[,4][fit$pred$Resample==folds[i]])
-    train.roc.labels[i] <- paste0(folds[i]," (AUC=",round(train.roc.obj[[i]]$auc,digits = 2),")")
+  for(j in 1:length(folds)){
+    train.roc.obj[[j]] <- roc(response=fit$pred$obs[fit$pred$Resample==folds[j]],predictor=fit$pred[,4][fit$pred$Resample==folds[j]])
+    train.roc.labels[j] <- paste0(folds[j]," (AUC=",round(train.roc.obj[[j]]$auc,digits = 2),")")
   }
-  tiff(filename = paste(OutPrefix,".",model,".accuracy.on.train.data.tiff"), units = "in", height = 10,width = 10,res = 300)
+  tiff(filename = paste0(OutPrefix,".",model,".accuracy.on.train.data.tiff"), units = "in", height = 6,width = 6,res = 300)
   ggroc(train.roc.obj) + ggtitle(paste(model.label,"accuracy on train data")) + labs(color = "Fold") +
                          scale_color_discrete(labels=train.roc.labels)+ theme_bw()
   graphics.off()
   imp.var <- varImp(fit ,scale=T,useModel=F)
-  tiff(filename = paste(OutPrefix,".",model,".variable.importance.tiff"), units = "in", height = 10,width = 10,res = 300)
+  tiff(filename = paste0(OutPrefix,".",model,".variable.importance.tiff"), units = "in", height = 6,width = 6,res = 300)
   plot(imp.var, top = 20)
   graphics.off()
   ####################### Testing ####################################################
@@ -125,7 +127,7 @@ for(model in models){
   cat("Plot test results...")
   cat("\n")
   obj.roc <- roc(response=pred$Reference,predictor=pred[,1])
-  tiff(filename = paste(OutPrefix,".",model,"accuracy.on.test.data.tiff"), units = "in", height = 10,width = 10,res = 300)
+  tiff(filename = paste0(OutPrefix,".",model,".accuracy.on.test.data.tiff"), units = "in", height = 6,width = 6,res = 300)
   ggroc(obj.roc)+ggtitle(paste(model.label,"accuracy on test data")) +
     theme_bw() + annotate("text",x = 0.1,y = 0.1,label=paste0("AUC=",round(obj.roc$auc,digits = 2)))
   graphics.off()
@@ -133,12 +135,7 @@ for(model in models){
   cat("\n")
   sink(paste0(OutPrefix,".",model,".txt"))
   cat(model,"(",model.label,")",sep = "",":\n")
-  confusionMatrix(data =as.factor(pred$Predict) , reference = as.factor(pred$Reference))
+  results.summ <- confusionMatrix(data =as.factor(pred$Predict) , reference = as.factor(pred$Reference))
+  results.summ
   sink()
 }
-
-
-
-
-
-
