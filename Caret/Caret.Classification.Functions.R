@@ -22,13 +22,15 @@ corr.based.FC <- function(feature.data,class.vect,cut.off=0.9){
   cor.c <- apply(feature.data, 2, function(x){return(cor(x,as.numeric(as.factor(class.vect)) , method = "spearman"))})
   
   rm.index <- vector(mode = "numeric")
-  for (i in 1:length(high.cor.f)) {
-    if(length(high.cor.f[[i]]) > 0){
-      cor.c.1 <- data.frame(cor.c=abs(cor.c[c(i,high.cor.f[[i]])]),index=c(i,high.cor.f[[i]]))
-      cor.c.1 <- cor.c.1[order(cor.c.1$cor.c , decreasing = T) , ]
-      rm.index <- append(rm.index , values = cor.c.1$index[-1])
+  if(length(high.cor.f)>0)
+    for (i in 1:length(high.cor.f)) {
+      if(length(high.cor.f[[i]]) > 0){
+        cor.c.1 <- data.frame(cor.c=abs(cor.c[c(i,high.cor.f[[i]])]),index=c(i,high.cor.f[[i]]))
+        cor.c.1 <- cor.c.1[order(cor.c.1$cor.c , decreasing = T) , ]
+        rm.index <- append(rm.index , values = cor.c.1$index[-1])
+      }
     }
-  }
   return(unique(rm.index))
 }
+
 
