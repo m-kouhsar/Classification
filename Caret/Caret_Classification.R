@@ -51,7 +51,8 @@ if(feature.selection){
   data.feature <- data.feature[,!nzv$nzv]
   
   rm.f <- corr.based.FC(feature.data = data.feature , class.vect = data.class[,class.column] , cut.off = 0.9)
-  data.feature <- data.feature[,-rm.f]  
+  if(length(rm.f)>0)
+    data.feature <- data.feature[,-rm.f]  
   
 }
 
