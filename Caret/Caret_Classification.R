@@ -6,6 +6,7 @@ options(datatable.fread.datatable = F)
 library(stringr)
 library(ggplot2)
 library(pROC)
+library(doParallel)
 library("funr")
 
 dirScript <- dirname(sys.script())
@@ -109,7 +110,6 @@ for(i in 1:length(models)){
   tryCatch(expr = {
     
     if(Do.Parellel){
-      library(doParallel)
       cores <- detectCores()
       cl <- makePSOCKcluster(cores)
       registerDoParallel(cl)
