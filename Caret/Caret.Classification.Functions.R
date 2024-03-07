@@ -33,4 +33,14 @@ corr.based.FC <- function(feature.data,class.vect,cut.off=0.9){
   return(unique(rm.index))
 }
 
-
+###########################################################################
+t.test.score <- function(feature.data,class.vect){
+  result <- data.frame(statistic=vector(mode = "numeric",length = ncol(feature.data)),p.value=vector(mode = "numeric",length = ncol(feature.data)))
+  rownames(result) <- colnames(feature.data)
+  for (i in 1:ncol(feature.data)) {
+    t <- t.test(x ~ y , data = data.frame(x=feature.data[,i],y=class.vect))
+    result$statistic[i] <- t$statistic
+    result$p.value[i] <- t$p.value
+  }
+  return(result)
+}
