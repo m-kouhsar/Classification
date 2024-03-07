@@ -6,8 +6,8 @@ options(datatable.fread.datatable = F)
 library(stringr)
 library(ggplot2)
 library(pROC)
-library(doParallel)
 library("funr")
+library(doParallel)
 
 dirScript <- dirname(sys.script())
 source(paste0(dirScript,"/Caret.Classification.Functions.R"))
@@ -64,19 +64,6 @@ if(scale){
   data.feature <- as.data.frame(scale(data.feature))
 }
 
-######################## Feature Selection #########################################
-if(feature.selection){
-  cat("Feature selection...")
-  cat("\n")
-  nzv <- nearZeroVar(data.feature, saveMetrics= TRUE)
-  data.feature <- data.feature[,!nzv$nzv]
-  
-  rm.f <- corr.based.FC(feature.data = data.feature , class.vect = data.class[,class.column] , cut.off = 0.9)
-  if(length(rm.f)>0)
-    data.feature <- data.feature[,-rm.f]  
-  
-}
-
 ######################## Train-Test splitting ######################################
 cat("Train-Test splitting...")
 cat("\n")
@@ -88,10 +75,26 @@ data.class <- train.test.split(grouping.data = data.class , factor.grouping.vari
 data.train <- cbind.data.frame(data.feature[data.class$Train ,],Class=as.factor(data.class[data.class$Train , class.column]))
 data.test <- cbind.data.frame(data.feature[!data.class$Train ,],Class=as.factor(data.class[!data.class$Train , class.column]))
 
+######################## Feature Selection #########################################
+if(feature.selection){
+  cat("Feature selection...")
+  cat("\n")
+  nzv <- nearZeroVar(data.train[,-ncol(data.train)], saveMetrics= TRUE)
+  data.train <- data.train[,c(!nzv$nzv,T)]
+  
+  rm.f <- corr.based.FC(feature.data = data.train[,-ncol(data.train)] , class.vect = data.train[,ncol(data.train)] , cut.off = 0.9)
+  if(length(rm.f)>0)
+    data.train <- data.train[,-rm.f]  
+  
+  t <- t.test.score(feature.data = data.train[,-ncol(data.train)],class.vect = data.train[,ncol(data.train)])
+  data.train <- data.train[,c(t$p.value < 0.05,T)]
+}
+
+####################################################################################
 model.all <-  getModelInfo()
 for(i in 1:length(models)){
     model <- models[i]
-    ######################## Training #################################################
+    ######################## Training ####################
     model.label <- model.all[[model]]$label
     
     cat(paste0("Train ",model," (",model.label,") ","model on train data..."))
@@ -160,7 +163,7 @@ for(i in 1:length(models)){
     tiff(filename = paste0(OutPrefix,".",model,".variable.importance.tiff"),type="cairo", units = "in", height = 10,width = 10,res = 300)
     print(p)
     graphics.off()
-    ####################### Testing ####################################################
+    ####################### Testing #####################
     cat(paste0("Applying the ",model," model on test data..."))
     cat("\n")
     pred <- predict(fit , newdata = data.test , type = "prob")
