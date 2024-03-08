@@ -57,12 +57,6 @@ if(!identical(rownames(data.class),colnames(data.feature)))
   stop("Row names in class data must be equal to colnames in feature data")
 
 data.feature <- as.data.frame(t(data.feature))
-######################## Scaling ###################################################
-if(scale){
-  cat("Scalling feature data...")
-  cat("\n")
-  data.feature <- as.data.frame(scale(data.feature))
-}
 
 ######################## Train-Test splitting ######################################
 cat("Train-Test splitting...")
@@ -70,11 +64,18 @@ cat("\n")
 grouping.columns.num <- str_trim(str_split(grouping.columns.num , pattern = ",",simplify = T)[1,],side = "both")
 grouping.columns.fact <- str_trim(str_split(grouping.columns.fact , pattern = ",",simplify = T)[1,],side = "both")
 
-data.class <- train.test.split(grouping.data = data.class , factor.grouping.variables = c(grouping.columns.fact , class.column),
-                               numeric.grouping.variables = grouping.columns.num,train.percentage = 0.75)
+data.class <- train.test.split(grouping.data = data.class , class.variable = class.column,factor.grouping.variables = grouping.columns.fact ,
+                               numeric.grouping.variables = grouping.columns.num,train.percentage = 0.8,use.anticlust=F)
+
 data.train <- cbind.data.frame(data.feature[data.class$Train ,],Class=as.factor(data.class[data.class$Train , class.column]))
 data.test <- cbind.data.frame(data.feature[!data.class$Train ,],Class=as.factor(data.class[!data.class$Train , class.column]))
-
+######################## Scaling ###################################################
+if(scale){
+  cat("Scalling feature data...")
+  cat("\n")
+  preProcess.model <- preProcess(data.train,method = c("scale","center"))
+  data.train <- predict(preProcess.model , data.train)
+}
 ######################## Feature Selection #########################################
 if(feature.selection){
   cat("Feature selection...")
@@ -89,7 +90,6 @@ if(feature.selection){
   t <- t.test.score(feature.data = data.train[,-ncol(data.train)],class.vect = data.train[,ncol(data.train)])
   data.train <- data.train[,c(t$p.value < 0.05,T)]
 }
-
 ####################################################################################
 model.all <-  getModelInfo()
 for(i in 1:length(models)){
@@ -102,8 +102,8 @@ for(i in 1:length(models)){
   
   set.seed(1234)
   fitControl <- trainControl(
-    method = "cv",
-    number = 5, 
+    method = "CV",
+    number = 2,
     classProbs = T,
     savePredictions = T,
     selectionFunction = best,
@@ -121,8 +121,8 @@ for(i in 1:length(models)){
     Grid <- model.all[[model]]$grid(x = data.train[,-ncol(data.train)],y = data.train[,ncol(data.train)],len = 10)
     fit <- train(Class ~ ., data = data.train, 
                  method = model, 
-                 trControl = fitControl,
-                 tuneGrid = Grid
+                 trControl = fitControl#,
+                 #tuneGrid = Grid
                  )
     
     if(Do.Parellel)
