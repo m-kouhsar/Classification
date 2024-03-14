@@ -19,7 +19,7 @@ OutPrefix = args[3]
 class.column=args[4] 
 grouping.columns.num=args[5] 
 grouping.columns.fact=args[6] 
-scale=args[7] 
+preprocess=args[7] 
 feature.selection=args[8]
 saveModel=args[9]
 models= args[10]
@@ -32,7 +32,7 @@ cat("Output files prefix: ",OutPrefix,"\n")
 cat("Class variable: ",class.column,"\n")
 cat("Numeric variables for train-test split: ",grouping.columns.num,"\n") 
 cat("Categorical variables for train-test split: ",grouping.columns.fact,"\n")
-cat("Do you want to scale data? ",scale,"\n")
+cat("Pre-process: ",preprocess,"\n")
 cat("Do you want to run feature selection? ",feature.selection,"\n") 
 cat("Do you want to save trained model? ",saveModel,"\n")
 cat("Models: ",models,"\n")
@@ -42,10 +42,10 @@ cat("\n")
 cat("Reading inputs...")
 cat("\n")
 
-scale=ifelse(tolower(trimws(scale))=="yes",T,F) 
 feature.selection=ifelse(tolower(trimws(feature.selection))=="yes",T,F) 
 saveModel=ifelse(tolower(trimws(saveModel))=="yes",T,F)
 models= str_split(trimws(models),pattern = ",",simplify = T)[1,]
+preprocess <- str_split(trimws(preprocess),pattern = ",",simplify = T)[1,]
 Do.Parellel=ifelse(tolower(trimws(Do.Parellel))=="yes",T,F)
 
 data.feature <- fread(file = data.feature.file , stringsAsFactors = F , header = T)
@@ -65,40 +65,21 @@ grouping.columns.num <- str_trim(str_split(grouping.columns.num , pattern = ",",
 grouping.columns.fact <- str_trim(str_split(grouping.columns.fact , pattern = ",",simplify = T)[1,],side = "both")
 
 data.class <- train.test.split(grouping.data = data.class , class.variable = class.column,factor.grouping.variables = grouping.columns.fact ,
-                               numeric.grouping.variables = grouping.columns.num,train.percentage = 0.8,use.anticlust=F)
+                               numeric.grouping.variables = grouping.columns.num,train.percentage = 0.8,use.anticlust=T)
 
 data.train <- cbind.data.frame(data.feature[data.class$Train ,],Class=as.factor(data.class[data.class$Train , class.column]))
 data.test <- cbind.data.frame(data.feature[!data.class$Train ,],Class=as.factor(data.class[!data.class$Train , class.column]))
-######################## Scaling ###################################################
-if(scale){
-  cat("Scalling feature data...")
-  cat("\n")
-  preProcess.model <- preProcess(data.train,method = c("scale","center"))
-  data.train <- predict(preProcess.model , data.train)
-}
-######################## Feature Selection #########################################
-if(feature.selection){
-  cat("Feature selection...")
-  cat("\n")
-  nzv <- nearZeroVar(data.train[,-ncol(data.train)], saveMetrics= TRUE)
-  data.train <- data.train[,c(!nzv$nzv,T)]
-  
-  rm.f <- corr.based.FC(feature.data = data.train[,-ncol(data.train)] , class.vect = data.train[,ncol(data.train)] , cut.off = 0.9)
-  if(length(rm.f)>0)
-    data.train <- data.train[,-rm.f]  
-  
-  t <- t.test.score(feature.data = data.train[,-ncol(data.train)],class.vect = data.train[,ncol(data.train)])
-  data.train <- data.train[,c(t$p.value < 0.05,T)]
-}
-####################################################################################
+
+
+################################## Gnerating model ##################################################
 model.all <-  getModelInfo()
 for(i in 1:length(models)){
-    model <- models[i]
-    ######################## Training ####################
-    model.label <- model.all[[model]]$label
-    
-    cat(paste0("Train ",model," (",model.label,") ","model on train data..."))
-    cat("\n")
+  model <- models[i]
+  ######################## Training ####################
+  model.label <- model.all[[model]]$label
+  
+  cat(paste0("Train ",model," (",model.label,") ","model on train data..."))
+  cat("\n")
   
   set.seed(1234)
   fitControl <- trainControl(
@@ -121,9 +102,10 @@ for(i in 1:length(models)){
     Grid <- model.all[[model]]$grid(x = data.train[,-ncol(data.train)],y = data.train[,ncol(data.train)],len = 10)
     fit <- train(Class ~ ., data = data.train, 
                  method = model, 
-                 trControl = fitControl#,
-                 #tuneGrid = Grid
-                 )
+                 trControl = fitControl,
+                 tuneGrid = Grid,
+                 preProcess=preprocess
+    )
     
     if(Do.Parellel)
       stopCluster(cl)
@@ -191,7 +173,8 @@ for(i in 1:length(models)){
   },
   error=function(e){
     print(e)
-    })
+  })
   cat("#########################################################################")
   cat("\n")
 }
+
