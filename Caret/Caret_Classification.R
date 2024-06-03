@@ -19,11 +19,12 @@ OutPrefix = args[3]
 class.column=args[4] 
 grouping.columns.num=args[5] 
 grouping.columns.fact=args[6] 
-preprocess=args[7] 
-feature.selection=args[8]
-saveModel=args[9]
-models= args[10]
-Do.Parellel=args[11]
+scale=args[7] 
+feature.selection=args[8] ## feature.selection=nzv,rfe,cor,ttest
+rfe.size=args[9]  ## rfe.size=c(5:20,50,100)
+saveModel=args[10]
+models= args[11]
+Do.Parellel=args[12]
 
 ######################### Input Arguments ###########################################
 cat("Feature data file: ",data.feature.file,"\n")
@@ -32,31 +33,37 @@ cat("Output files prefix: ",OutPrefix,"\n")
 cat("Class variable: ",class.column,"\n")
 cat("Numeric variables for train-test split: ",grouping.columns.num,"\n") 
 cat("Categorical variables for train-test split: ",grouping.columns.fact,"\n")
-cat("Pre-process: ",preprocess,"\n")
-cat("Do you want to run feature selection? ",feature.selection,"\n") 
+cat("Do you want to scale data? ",scale,"\n")
+cat("feature selectionmethods: ",feature.selection,"\n") 
+cat("rfe size: ",rfe.size , "\n")
 cat("Do you want to save trained model? ",saveModel,"\n")
 cat("Models: ",models,"\n")
 cat("Do you want to run training in parallel?",Do.Parellel,"\n")
+
 ######################## Reading Inputs ############################################
 cat("\n")
 cat("Reading inputs...")
 cat("\n")
 
-feature.selection=ifelse(tolower(trimws(feature.selection))=="yes",T,F) 
+scale=ifelse(tolower(trimws(scale))=="yes",T,F) 
+
+feature.selection <- trimws(str_split(trimws(tolower(feature.selection)) , pattern = ",", simplify = T))
+feature.selection.nzv <- ifelse("nzv" %in% feature.selection,T,F)
+feature.selection.rfe <- ifelse("rfe" %in% feature.selection,T,F)
+feature.selection.cor = ifelse("cor" %in% feature.selection,T,F)
+feature.selection.ttest = ifelse("ttest" %in% feature.selection,T,F)
+
 saveModel=ifelse(tolower(trimws(saveModel))=="yes",T,F)
 models= str_split(trimws(models),pattern = ",",simplify = T)[1,]
-preprocess <- str_split(trimws(preprocess),pattern = ",",simplify = T)[1,]
 Do.Parellel=ifelse(tolower(trimws(Do.Parellel))=="yes",T,F)
 
-data.feature <- fread(file = data.feature.file , stringsAsFactors = F , header = T)
-rownames(data.feature) <- data.feature[,1]
-data.feature <- data.feature[,-1]
-
+data.feature <- readRDS(data.feature.file)
 data.class <- read.csv(file=data.class.file , stringsAsFactors = F , header = T , row.names = 1)
-if(!identical(rownames(data.class),colnames(data.feature)))
-  stop("Row names in class data must be equal to colnames in feature data")
 
-data.feature <- as.data.frame(t(data.feature))
+if(!identical(rownames(data.class),rownames(data.feature)))
+  stop("Row names in class and feature data must be equal")
+
+set.seed(12345)
 
 ######################## Train-Test splitting ######################################
 cat("Train-Test splitting...")
@@ -64,14 +71,73 @@ cat("\n")
 grouping.columns.num <- str_trim(str_split(grouping.columns.num , pattern = ",",simplify = T)[1,],side = "both")
 grouping.columns.fact <- str_trim(str_split(grouping.columns.fact , pattern = ",",simplify = T)[1,],side = "both")
 
+
 data.class <- train.test.split(grouping.data = data.class , class.variable = class.column,factor.grouping.variables = grouping.columns.fact ,
-                               numeric.grouping.variables = grouping.columns.num,train.percentage = 0.8,use.anticlust=T)
+                               numeric.grouping.variables = grouping.columns.num,train.percentage = 0.8,use.anticlust=F)
 
 data.train <- cbind.data.frame(data.feature[data.class$Train ,],Class=as.factor(data.class[data.class$Train , class.column]))
 data.test <- cbind.data.frame(data.feature[!data.class$Train ,],Class=as.factor(data.class[!data.class$Train , class.column]))
+######################## Scaling ###################################################
+if(scale){
+  cat("Scalling feature data...")
+  cat("\n")
+  preProcess.model <- preProcess(data.train,method = c("scale","center"))
+  data.train <- predict(preProcess.model , data.train)
+}
+######################## Feature Selection #########################################
+cat("Feature selection...")
+cat("\n")
 
+if(feature.selection.nzv){
+  cat("     Removing nzv...\n")
+  nzv <- nearZeroVar(data.train[,-ncol(data.train)], saveMetrics= TRUE)
+  data.train <- data.train[,c(!nzv$nzv,T)] 
+}
 
-################################## Gnerating model ##################################################
+if(feature.selection.cor){
+  cat("     Correlation based feature selection...\n")
+  rm.f <- corr.based.FC(feature.data = data.train[,-ncol(data.train)] , class.vect = data.train[,ncol(data.train)] , cut.off = 0.9)
+  if(length(rm.f)>0)
+    data.train <- data.train[,-rm.f]  
+}
+
+if(feature.selection.ttest){
+  cat("     t-test based feature selection...\n")
+  t <- t.test.score(feature.data = data.train[,-ncol(data.train)],class.vect = data.train[,ncol(data.train)])
+  data.train <- data.train[,c(t$p.value < 0.05,T)]
+}
+
+if(feature.selection.rfe){
+  cat("     Recursive feature elimination...\n")
+  
+  if(Do.Parellel){
+    cores <- detectCores()
+    cl <- makePSOCKcluster(cores)
+    registerDoParallel(cl)
+    
+    seeds <- vector(mode = "list", length = 51)
+    for(i in 1:50) seeds[[i]] <- sample.int(1000, 19)
+    seeds[[51]] <- sample.int(1000, 1)
+  }else{
+    seeds <- NA
+  }
+  rfe.size <- eval(parse(text = rfe.size))
+  rfe.control <- rfeControl(functions = rfFuncs , method = "repeatedcv",number = 5, repeats = 10 , verbose = F, 
+                            seeds = seeds,
+                            allowParallel = Do.Parellel)
+  rfe.fit <- rfe(x = data.train[,-ncol(data.train)],y = data.train[,ncol(data.train)], sizes = rfe.size, rfeControl = rfe.control)
+  
+  if(Do.Parellel)
+    stopCluster(cl)
+  
+  p <- ggplot(data = rfe.fit, metric = "Accuracy") + theme_bw()
+  tiff(filename = paste0(OutPrefix,".RFE.on.train.data.tiff"),type="cairo", units = "in", height = 10,width = 10,res = 300)
+  print(p)
+  graphics.off()
+  
+  data.train <- cbind.data.frame(data.train[,rfe.fit$optVariables],Class=data.train[,ncol(data.train)])
+}
+####################################################################################
 model.all <-  getModelInfo()
 for(i in 1:length(models)){
   model <- models[i]
@@ -81,31 +147,37 @@ for(i in 1:length(models)){
   cat(paste0("Train ",model," (",model.label,") ","model on train data..."))
   cat("\n")
   
-  set.seed(1234)
-  fitControl <- trainControl(
-    method = "CV",
-    number = 2,
-    classProbs = T,
-    savePredictions = T,
-    selectionFunction = best,
-    allowParallel = Do.Parellel,
-    verboseIter = F)
   
   tryCatch(expr = {
+    
+    Grid <- model.all[[model]]$grid(x = data.train[,-ncol(data.train)],y = data.train[,ncol(data.train)],len = 10)
     
     if(Do.Parellel){
       cores <- detectCores()
       cl <- makePSOCKcluster(cores)
       registerDoParallel(cl)
+      
+      seeds <- vector(mode = "list", length = 6) #length = (number * repeats) + 1
+      for(i in 1:50) seeds[[i]] <- sample.int(n=1000, size=nrow(Grid)) 
+      seeds[[51]] <- sample.int(1000, 1)
+    }else{
+      seeds <- NA
     }
     
-    Grid <- model.all[[model]]$grid(x = data.train[,-ncol(data.train)],y = data.train[,ncol(data.train)],len = 10)
+    fitControl <- trainControl(
+      method = "CV",
+      number = 5,
+      classProbs = T,
+      savePredictions = T,
+      selectionFunction = tolerance,
+      allowParallel = Do.Parellel,
+      seeds = seeds,
+      verboseIter = F)
+    
     fit <- train(Class ~ ., data = data.train, 
                  method = model, 
                  trControl = fitControl,
-                 tuneGrid = Grid,
-                 preProcess=preprocess
-    )
+                 tuneGrid = Grid)
     
     if(Do.Parellel)
       stopCluster(cl)
@@ -140,7 +212,8 @@ for(i in 1:length(models)){
     graphics.off()
     
     imp.var <- varImp(fit ,scale=T,useModel=F)
-    p <- plot(imp.var, top = 20)
+    n.var <- length(predictors(fit))
+    p <- plot(imp.var, top = ifelse(n.var>50,round(n.var*0.1,digits = 0),n.var))
     
     tiff(filename = paste0(OutPrefix,".",model,".variable.importance.tiff"),type="cairo", units = "in", height = 10,width = 10,res = 300)
     print(p)
@@ -148,6 +221,8 @@ for(i in 1:length(models)){
     ####################### Testing #####################
     cat(paste0("Applying the ",model," model on test data..."))
     cat("\n")
+    if(scale)
+      data.test <- predict(preProcess.model,data.test)
     pred <- predict(fit , newdata = data.test , type = "prob")
     pred$Predict <- predict(fit , newdata = data.test , type = "raw")
     pred$Reference <- data.test$Class
@@ -177,4 +252,3 @@ for(i in 1:length(models)){
   cat("#########################################################################")
   cat("\n")
 }
-
