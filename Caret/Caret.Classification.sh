@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -A Research_Project-MRC164847 # research project to submit under.
+#SBATCH -A Research_Project1 # research project to submit under.
 #SBATCH --export=ALL # export all environment variables to the batch job.
 #SBATCH -D . # set working directory to .
 #SBATCH -p mrcq
@@ -10,20 +10,20 @@
 #SBATCH --mail-user=m.kouhsar@exeter.ac.uk # email address
 
 
-data_feature_file=/lustre/projects/Research_Project-191391/Morteza/Classification/Raw/NorCog.miRNA.LogCPM.rds
-data_class_file=/lustre/projects/Research_Project-191391/Morteza/Classification/Raw/NorCog.Pheno.csv 
-OutPrefix=/lustre/projects/Research_Project-191391/Morteza/Classification/NorCog.miRNA
+data_feature_file=./Classification/Raw/FeatureMatrix.rds
+data_class_file=./Classification/Raw/PhenotypeData.csv 
+OutPrefix=./Classification/Caret.Out
 class_column="Phenotype" 
 grouping_columns_num="Age"
 grouping_columns_fact="Sex"
 scale=no
-feature_selection="nzv,rfe"
-rfe_size="c(5,10,20,50)"
+feature_selection="nzv,rfe"  ## feature.selection=nzv,rfe,cor,ttest
+rfe_size="c(5,10,20,50)"     ## An R numeric vector in string type
 saveModel=yes
 models=rf
 do_parallel=yes
 
-ScriptDir=/lustre/projects/Research_Project-191391/Morteza/Classification/Scripts
+ScriptDir=./Caret
 
 
 
