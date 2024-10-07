@@ -94,7 +94,7 @@ initial.model <- mixOmics::splsda(X.train, Y.train, ncomp = n.comp)
 
 background = background.predict(initial.model, comp.predicted=2, dist = "max.dist")
 
-pdf(file =paste0(OutPrefix,".InitialModelPCA.pdf"), height = 8, width = 8)
+pdf(file =paste0(OutPrefix,".sPLSDA.InitialModelPCA.pdf"), height = 8, width = 8)
 
 plotIndiv(initial.model , comp = 1:2, 
           group = Y.train, ind.names = FALSE,  
