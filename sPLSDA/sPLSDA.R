@@ -92,7 +92,7 @@ graphics.off()
 
 initial.model <- mixOmics::splsda(X.train, Y.train, ncomp = n.comp)
 
-background = background.predict(initial.model, comp.predicted=2, dist = "max.dist")
+background = background.predict(initial.model, comp.predicted=2, dist = dist.method)
 
 pdf(file =paste0(OutPrefix,".sPLSDA.InitialModelPCA.pdf"), height = 8, width = 8)
 
