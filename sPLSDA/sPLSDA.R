@@ -79,9 +79,9 @@ if(data.split){
 cat("looking at train data ...")
 cat("\n")
 
-pca.features <- pca(X.train, ncomp = 10, center = TRUE, scale = TRUE)
+pca.features <- pca(X.train, ncomp = n.comp, center = TRUE, scale = TRUE)
 
-pdf(file =paste0(OutPrefix,".RawPCA.pdf"), height = 8, width = 8)
+pdf(file =paste0(OutPrefix,".sPLSDA.RawPCA.pdf"), height = 8, width = 8)
 plot(pca.features)
 
 plotIndiv(pca.features, comp = c(1,2), 
