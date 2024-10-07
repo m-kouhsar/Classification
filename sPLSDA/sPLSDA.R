@@ -158,7 +158,7 @@ final.model <- mixOmics::splsda(X.train, Y.train,
                        ncomp = optimal.ncomp, 
                        keepX = optimal.keepX)
 if(save.final.model){
-  save(final.model, X.train, Y.train, perf.initial.model, tune.initial.model,file = paste0(OutPrefix,".FinalModel.rdat"))
+  save(final.model, X.train, Y.train, perf.initial.model, tune.initial.model,file = paste0(OutPrefix,".sPLSDA.FinalModel.rdat"))
 }
 pdf(file =paste0(OutPrefix,".sPLSDA.FinalModelPCA.pdf"), height = 8, width = 8)
 plotIndiv(final.model, comp = c(1,2), 
