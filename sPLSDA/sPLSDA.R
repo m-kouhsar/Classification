@@ -136,7 +136,7 @@ tune.initial.model <- tune.splsda(X.train, Y.train, ncomp = optimal.ncomp,
                                  test.keepX = list.keepX,
                                  cpus =ncpu-1 ) 
 
-pdf(file =paste0(OutPrefix,".Tuning.pdf"), height = 8, width = 12)
+pdf(file =paste0(OutPrefix,".sPLSDA.Tuning.pdf"), height = 8, width = 12)
 
 plot(perf.initial.model, sd = TRUE,legend.position = "horizontal")
 
@@ -160,7 +160,7 @@ final.model <- mixOmics::splsda(X.train, Y.train,
 if(save.final.model){
   save(final.model, X.train, Y.train, perf.initial.model, tune.initial.model,file = paste0(OutPrefix,".FinalModel.rdat"))
 }
-pdf(file =paste0(OutPrefix,".FinalModelPCA.pdf"), height = 8, width = 8)
+pdf(file =paste0(OutPrefix,".sPLSDA.FinalModelPCA.pdf"), height = 8, width = 8)
 plotIndiv(final.model, comp = c(1,2), 
           group = Y.train, ind.names = FALSE, 
           ellipse = TRUE, legend = TRUE, 
@@ -178,7 +178,7 @@ if(optimal.ncomp > 2){
 }
 graphics.off()
 
-tiff(filename = paste0(OutPrefix,".ROC.Train.tif"),height = 5,width = 8, units = "in",res = 300)
+tiff(filename = paste0(OutPrefix,".sPLSDA.ROC.Train.tif"),height = 5,width = 8, units = "in",res = 300)
 auc = auroc(final.model , print = F , plot = T)
 auc[[optimal.ncomp+1]] + ggtitle("Final model ROC on train data")
 graphics.off()
@@ -188,7 +188,7 @@ if(data.split){
   cat("Performance on test data...")
   cat("\n")
   
-  tiff(filename = paste0(OutPrefix,".ROC.Test.tif"),height = 5,width = 8, units = "in",res = 300)
+  tiff(filename = paste0(OutPrefix,".sPLSDA.ROC.Test.tif"),height = 5,width = 8, units = "in",res = 300)
   auc = auroc(final.model , print = F,newdata = X.test,outcome.test = Y.test)
   auc[[optimal.ncomp+1]] + ggtitle("Final model ROC on test data")
   graphics.off()
