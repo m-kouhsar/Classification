@@ -28,37 +28,34 @@ train.test.split <- function(grouping.data , class.variable, factor.grouping.var
 
 ###################################################################################
 maxN <- function(x, N=2, arr.ind = F){
-  x=as.matrix(x)
-  len <- length(x)
+  x = as.matrix(x)
+  y=unique(sort(x,decreasing = T))
+  len <- length(y)
   if(N>len){
-    warning('N greater than length(x).  Setting N=length(x)')
-    N <- length(x)
+    warning('N out of bounds.  Setting N=length(unique(x))')
+    N <- length(y)
   }
-  
-  out = unique(sort(x,decreasing = T))[N]
   
   if(arr.ind){
-    return(which(x==out,arr.ind = arr.ind))
+    return(which(x==y[N],arr.ind = arr.ind))
   }else{
-    return(out)
+    return(y[N])
   }
-  
 }
 
 ##################################################################################
 minN <- function(x, N=2, arr.ind = F){
-  x=as.matrix(x)
-  len <- length(x)
+  x = as.matrix(x)
+  y=unique(sort(x,decreasing = F))
+  len <- length(y)
   if(N>len){
-    warning('N greater than length(x).  Setting N=length(x)')
-    N <- length(x)
+    warning('N out of bounds.  Setting N=length(unique(x))')
+    N <- length(y)
   }
   
-  out = unique(sort(x,decreasing = F))[N]
-  
   if(arr.ind){
-    return(which(x==out,arr.ind = arr.ind))
+    return(which(x==y[N],arr.ind = arr.ind))
   }else{
-    return(out)
+    return(y[N])
   }
 }
