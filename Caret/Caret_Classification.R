@@ -24,7 +24,7 @@ feature.selection=args[8] ## feature.selection=nzv,rfe,cor,ttest
 rfe.size=args[9]  ## rfe.size=c(5:20,50,100)
 saveModel=args[10]
 models= args[11]
-Do.Parellel=args[12]
+Do.Parallel=args[12]
 
 ######################### Input Arguments ###########################################
 cat("Feature data file: ",data.feature.file,"\n")
@@ -38,7 +38,7 @@ cat("feature selectionmethods: ",feature.selection,"\n")
 cat("rfe size: ",rfe.size , "\n")
 cat("Do you want to save trained model? ",saveModel,"\n")
 cat("Models: ",models,"\n")
-cat("Do you want to run training in parallel?",Do.Parellel,"\n")
+cat("Do you want to run training in parallel?",Do.Parallel,"\n")
 
 ######################## Reading Inputs ############################################
 cat("\n")
@@ -55,7 +55,7 @@ feature.selection.ttest = ifelse("ttest" %in% feature.selection,T,F)
 
 saveModel=ifelse(tolower(trimws(saveModel))=="yes",T,F)
 models= str_split(trimws(models),pattern = ",",simplify = T)[1,]
-Do.Parellel=ifelse(tolower(trimws(Do.Parellel))=="yes",T,F)
+Do.Parallel=ifelse(tolower(trimws(Do.Parallel))=="yes",T,F)
 
 data.feature <- readRDS(data.feature.file)
 data.class <- read.csv(file=data.class.file , stringsAsFactors = F , header = T , row.names = 1)
@@ -110,7 +110,7 @@ if(feature.selection.ttest){
 if(feature.selection.rfe){
   cat("     Recursive feature elimination...\n")
   
-  if(Do.Parellel){
+  if(Do.Parallel){
     cores <- detectCores()
     cl <- makePSOCKcluster(cores)
     registerDoParallel(cl)
@@ -124,10 +124,10 @@ if(feature.selection.rfe){
   rfe.size <- eval(parse(text = rfe.size))
   rfe.control <- rfeControl(functions = rfFuncs , method = "repeatedcv",number = 5, repeats = 10 , verbose = F, 
                             seeds = seeds,
-                            allowParallel = Do.Parellel)
+                            allowParallel = Do.Parallel)
   rfe.fit <- rfe(x = data.train[,-ncol(data.train)],y = data.train[,ncol(data.train)], sizes = rfe.size, rfeControl = rfe.control)
   
-  if(Do.Parellel)
+  if(Do.Parallel)
     stopCluster(cl)
   
   p <- ggplot(data = rfe.fit, metric = "Accuracy") + theme_bw()
@@ -152,7 +152,7 @@ for(i in 1:length(models)){
     
     Grid <- model.all[[model]]$grid(x = data.train[,-ncol(data.train)],y = data.train[,ncol(data.train)],len = 10)
     
-    if(Do.Parellel){
+    if(Do.Parallel){
       cores <- detectCores()
       cl <- makePSOCKcluster(cores)
       registerDoParallel(cl)
@@ -170,7 +170,7 @@ for(i in 1:length(models)){
       classProbs = T,
       savePredictions = T,
       selectionFunction = tolerance,
-      allowParallel = Do.Parellel,
+      allowParallel = Do.Parallel,
       seeds = seeds,
       verboseIter = F)
     
@@ -179,7 +179,7 @@ for(i in 1:length(models)){
                  trControl = fitControl,
                  tuneGrid = Grid)
     
-    if(Do.Parellel)
+    if(Do.Parallel)
       stopCluster(cl)
     
     if(saveModel)
